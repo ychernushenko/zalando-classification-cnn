@@ -7,4 +7,3 @@ plt.plot(x, np.sin(x))
 plt.show()
 
 print("Hello this is a new cell")
-a
