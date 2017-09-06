@@ -1,2 +1,7 @@
 {
+    "python.pythonPath": "${workspaceRoot}/venv/bin/python3.6",
+    "python.linting.pylintArgs": [
+        "--errors-only",
+        "--extension-pkg-whitelist=numpy"
+    ]
 }
