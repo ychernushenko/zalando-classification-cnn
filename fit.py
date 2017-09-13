@@ -3,38 +3,37 @@ import numpy as np
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
+from keras.layers import Embedding
+from keras.layers import Dense, Input, Flatten
+from keras.layers import Conv1D, MaxPooling1D, Embedding
+from keras.models import Model
+import pickle
+import csv
 
-TEXT_DATA_DIR = '20_newsgroup'
+TEXT_DATA_FILE = 'en_1117_20170908.csv'
 GLOVE_DIR = 'glove.6B'
+MODEL_NAME = 'model'
 MAX_NB_WORDS = 20000
 MAX_SEQUENCE_LENGTH = 1000
 VALIDATION_SPLIT = 0.2
 EMBEDDING_DIM = 100
 
 texts = []  # list of text samples
-labels_index = {}  # dictionary mapping label name to numeric id
+labels_index = {"other":0, "size issue":1, "fit issue":2}  # dictionary mapping label name to numeric id
 labels = []  # list of label ids
-for name in sorted(os.listdir(TEXT_DATA_DIR)):
-    path = os.path.join(TEXT_DATA_DIR, name)
-    if os.path.isdir(path):
-        label_id = len(labels_index)
-        labels_index[name] = label_id
-        for fname in sorted(os.listdir(path)):
-            if fname.isdigit():
-                fpath = os.path.join(path, fname)
-                f = open(fpath, encoding='latin-1')
-                t = f.read()
-                i = t.find('\n\n')  # skip header
-                if i > 0:
-                    t = t[i:]
-                texts.append(t)
-                f.close()
-                labels.append(label_id)
+
+with open(TEXT_DATA_FILE) as csvfile:
+    reader = csv.DictReader(csvfile)
+    for row in reader:
+        texts.append(row["text"])
+        labels.append(int(row["class"])-1)
 
 print('Found %s texts.' % len(texts))
 
 tokenizer = Tokenizer(nb_words=MAX_NB_WORDS)
 tokenizer.fit_on_texts(texts)
+with open('tokenizer.pickle', 'wb') as handle:
+    pickle.dump(tokenizer, handle, protocol=pickle.HIGHEST_PROTOCOL)
 sequences = tokenizer.texts_to_sequences(texts)
 
 word_index = tokenizer.word_index
@@ -75,3 +74,30 @@ for word, i in word_index.items():
     if embedding_vector is not None:
         # words not found in embedding index will be all-zeros.
         embedding_matrix[i] = embedding_vector
+
+embedding_layer = Embedding(len(word_index) + 1,
+                            EMBEDDING_DIM,
+                            weights=[embedding_matrix],
+                            input_length=MAX_SEQUENCE_LENGTH,
+                            trainable=False)
+
+sequence_input = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
+embedded_sequences = embedding_layer(sequence_input)
+x = Conv1D(128, 5, activation='relu')(embedded_sequences)
+x = MaxPooling1D(5)(x)
+x = Conv1D(128, 5, activation='relu')(x)
+x = MaxPooling1D(5)(x)
+x = Conv1D(128, 5, activation='relu')(x)
+x = MaxPooling1D(35)(x)  # global max pooling
+x = Flatten()(x)
+x = Dense(128, activation='relu')(x)
+preds = Dense(len(labels_index), activation='softmax')(x)
+
+model = Model(sequence_input, preds)
+model.compile(loss='categorical_crossentropy',
+              optimizer='rmsprop',
+              metrics=['acc'])
+
+model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=5, batch_size=128)
+
+model.save('model.h5')

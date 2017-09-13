@@ -2,16 +2,29 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "taskName": "build",
+            "taskName": "fit",
             "type": "process",
             "command": "${workspaceRoot}/venv/bin/python3",
             "args": [
-                "app.py"
+                "fit.py"
             ],
             "problemMatcher": [],
             "group": {
                 "kind": "build",
                 "isDefault": true
+            }
+        },
+        {
+            "taskName": "predict",
+            "type": "process",
+            "command": "${workspaceRoot}/venv/bin/python3",
+            "args": [
+                "predict.py"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
             }
         }
     ]
